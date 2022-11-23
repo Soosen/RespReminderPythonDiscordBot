@@ -85,7 +85,7 @@ async def on_message(ctx):
             #prepare embed
             desc = ""
             for i in range(8):
-                desc += str(datetime.time(hour=(int(args[1]) + i * 3) % 24, minute=int(args[2]), second=int(args[3]), microsecond=0, tzinfo=tz))[0:7] + "\n"
+                desc += str(datetime.time(hour=(int(args[1]) + i * 3) % 24, minute=int(args[2]), second=int(args[3]), microsecond=0, tzinfo=tz))[0:8] + "\n"
 
             #shift 5 minutes earlier
             if(int(args[2]) < 5):
