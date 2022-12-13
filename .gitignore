@@ -1,3 +1,6 @@
 gitignore
 config.json
-timetoduel.mp3
+config_test.json
+bosses_sound.mp3
+flowers_sound.mp3
+ffmpeg.exe
