@@ -48,17 +48,24 @@ async def kwiatki_routine(ctx):
     if(not await validate_arguments(ctx, "kwiatki")):
         return
 
-    await update_timers_list(ctx, remind_flowers_resps, "Kwiatki", 24, 0xca15b9)
+    await update_timers_list(ctx, remind_flowers_resps, "Kwiatki", 24, 0xca15b9, False, 5)
 
 
 async def bossy_routine(ctx):
-    if(not await validate_arguments(ctx, "reset")):
+    if(not await validate_arguments(ctx, "bossy")):
         return
 
-    await update_timers_list(ctx, remind_boss_resps, "Respy", 8, 0x00ff00)
+    await update_timers_list(ctx, remind_boss_resps, "Respy", 8, 0x00ff00, False, 5)
 
 
-async def update_timers_list(ctx, func, title, resps_per_day, color):
+async def event_routine(ctx):
+    if(not await validate_arguments(ctx, "event") or not config["event"]):
+        return
+
+    await update_timers_list(ctx, remind_event_resps, "Święta", 24, 0x00CCFF, True, 3)
+
+
+async def update_timers_list(ctx, func, title, resps_per_day, color, swieta, advance_time):
     tz = datetime.timezone(datetime.timedelta(hours=1))
     args = ctx.content.split()
 
@@ -72,16 +79,19 @@ async def update_timers_list(ctx, func, title, resps_per_day, color):
             args[2]), second=int(args[3]), microsecond=0, tzinfo=tz))[0:8] + "\n"
 
     #shift 5 minutes earlier
-    if(int(args[2]) < 5):
-        args[2] = str((int(args[2]) - 5) % 60)
+    if(int(args[2]) < advance_time):
+        args[2] = str((int(args[2]) - advance_time) % 60)
         args[1] = str((int(args[1]) - 1) % 24)
     else:
-        args[2] = str(int(args[2]) - 5)
+        args[2] = str(int(args[2]) - advance_time)
 
     #append new times to the list
     for i in range(resps_per_day):
         time_list.append(datetime.time(hour=(int(args[1]) + i * diff) % 24, minute=int(
             args[2]), second=int(args[3]), microsecond=0, tzinfo=tz))
+        if(swieta):
+            time_list.append(datetime.time(hour=(int(args[1]) + i * diff) % 24, minute=(int(
+                args[2]) + 30) % 60, second=int(args[3]), microsecond=0, tzinfo=tz))
 
     #update play_alert loop list
     func.change_interval(time=time_list)
@@ -101,10 +111,9 @@ async def remind(channels, sound):
             await asyncio.sleep(1)
 
 
-boss_list = create_list(8)
-flowers_list = create_list(24)
-
-
+boss_list = [datetime.time(hour = 0, minute = 0, second=  0)]
+flowers_list = [datetime.time(hour = 0, minute = 0, second=  0)]
+event_list = [datetime.time(hour=0, minute=0, second=0)]
 
 ########################################################################################
 #discord logic
@@ -114,6 +123,8 @@ async def on_ready():
     print(f'{client.user} has connected to Discord!')
     remind_boss_resps.start()
     remind_flowers_resps.start()
+    if(config["event"]):
+        remind_event_resps.start()
 
 
 
@@ -124,10 +135,17 @@ async def remind_boss_resps():
     lock.release()
     
 
-@tasks.loop(time=boss_list)
+@tasks.loop(time=flowers_list)
 async def remind_flowers_resps():
     await lock.acquire()
     await remind(config["flowers_voice_channel_ids"], config["sound_flowers"])
+    lock.release()
+
+
+@tasks.loop(time=event_list)
+async def remind_event_resps():
+    await lock.acquire()
+    await remind(config["event_voice_channel_ids"], config["sound_event"])
     lock.release()
 
 @client.event
@@ -148,6 +166,11 @@ async def on_message(ctx):
     if(ctx.content.startswith(config["prefix"] + "kwiatki")):
         #do kwiatki routine
         await kwiatki_routine(ctx)
+    
+    if(ctx.content.startswith(config["prefix"] + "event")):
+        if(config["event"]):
+        #do event routine
+            await event_routine(ctx)
 
 
 client.run(config["token"])

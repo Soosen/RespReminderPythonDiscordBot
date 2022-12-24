@@ -1,6 +1,7 @@
 gitignore
 config.json
 config_test.json
+christmas_sound.mp3
 bosses_sound.mp3
 flowers_sound.mp3
 ffmpeg.exe
