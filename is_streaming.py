@@ -50,7 +50,3 @@ async def change_discord_name(youtuber, api_key, member):
         print(f"Youtuber {youtuber.nickname} stopped streaming")
     
 
-async def get_nickname(id, client):
-    member = await client.fetch_user(id)
-    return member.display_name
-
