@@ -135,7 +135,10 @@ async def on_ready():
     if(config["event"]):
         remind_event_resps.start()
 
-    task = asyncio.ensure_future(main_routine(client, api_key))
+    try:
+        task = asyncio.create_task(main_routine(client, api_key))
+    except:
+        pass
 
 
 

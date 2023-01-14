@@ -3,6 +3,7 @@ import requests
 import asyncio
 from discord.utils import get
 from datetime import datetime
+import time
 
 class Youtuber:
     def __init__(self, nickname, channel_ID):
@@ -11,14 +12,14 @@ class Youtuber:
 
 async def main_routine(client, api_key):
     youtubers = load_youtubers_from_json()
-    members = client.get_all_members()
     while(True):
+        print(f"[{str(datetime.now())[:-7]}] Last streaming check")
+        members = client.get_all_members()
         for m in members:
             for y in youtubers:
-                if(y.nickname == m.display_name or "🔴[LIVE]" + y.nickname == m.display_name):
+                if(y.nickname == m.display_name or "🔴[LIVE] " + y.nickname == m.display_name):
                     await change_discord_name(y, api_key, m)
         await asyncio.sleep(60)
-        print(f"[{str(datetime.now())[:-7]}] Last streaming check")
 
 def load_youtubers_from_json():
     with open("youtubers.json", "r") as f:
@@ -41,9 +42,9 @@ def is_streaming(youtuber, api_key):
 
 async def change_discord_name(youtuber, api_key, member):
     if(member.display_name == youtuber.nickname and is_streaming(youtuber, api_key)):
-        await member.edit(nick="🔴[LIVE]" + youtuber.nickname)
+        await member.edit(nick="🔴[LIVE] " + youtuber.nickname)
         print(f"Youtuber {youtuber.nickname} started streaming")
-    elif(member.display_name == "🔴[LIVE]" + youtuber.nickname and not is_streaming(youtuber, api_key)):
+    elif(member.display_name == "🔴[LIVE] " + youtuber.nickname and not is_streaming(youtuber, api_key)):
         await member.edit(nick=youtuber.nickname)
         print(f"Youtuber {youtuber.nickname} stopped streaming")
     
