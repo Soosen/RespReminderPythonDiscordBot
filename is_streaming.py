@@ -19,7 +19,7 @@ async def main_routine(client, api_key):
             for y in youtubers:
                 if(y.nickname == m.display_name or "🔴[LIVE] " + y.nickname == m.display_name):
                     await change_discord_name(y, api_key, m)
-        await asyncio.sleep(60)
+        await asyncio.sleep(300)
 
 def load_youtubers_from_json():
     with open("youtubers.json", "r") as f:
@@ -31,6 +31,9 @@ def is_streaming(youtuber, api_key):
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={youtuber.channel_ID}&type=video&eventType=live&key={api_key}"
         response = requests.get(url)
         data = response.json()
+        if("quotaExceeded" in str(data)):
+            print("Daily limit of youtube api requests exceded")
+            return False
         
         if 'items' in data and len(data['items']) > 0:
             return True
