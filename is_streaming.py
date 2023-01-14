@@ -27,12 +27,10 @@ def load_youtubers_from_json():
 
 def is_streaming(youtuber, api_key):
     try:
-        # Here you can use any API to check if the youtuber is streaming
-        # The following code is an example of how to use the YouTube API to check if a channel is live
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={youtuber.channel_ID}&type=video&eventType=live&key={api_key}"
         response = requests.get(url)
         data = response.json()
-        #print(get_youtube_channel_id(youtuber.youtube_channel_name, api_key))
+        
         if 'items' in data and len(data['items']) > 0:
             return True
         else:
