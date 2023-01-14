@@ -3,16 +3,25 @@ import discord
 import asyncio
 from discord.ext import tasks
 import datetime
+import concurrent.futures
+from is_streaming import main_routine
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning, module='discord')
 
 lock = asyncio.Lock()
 
 with open('config.json') as f:
     config = json.load(f)
 
+with open('api.json') as f:
+    api_key = json.load(f)["api_key"]
+
 
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
+intents.members = True
 client = discord.Client(intents=intents)
 
 async def validate_arguments(ctx, command):
@@ -125,6 +134,8 @@ async def on_ready():
     remind_flowers_resps.start()
     if(config["event"]):
         remind_event_resps.start()
+
+    task = asyncio.ensure_future(main_routine(client, api_key))
 
 
 
