@@ -6,6 +6,7 @@ import datetime
 import concurrent.futures
 from is_streaming import main_routine
 import warnings
+import math
 
 warnings.filterwarnings("ignore", category=UserWarning, module='discord')
 
@@ -13,10 +14,6 @@ lock = asyncio.Lock()
 
 with open('config.json') as f:
     config = json.load(f)
-
-with open('api.json') as f:
-    api_key = json.load(f)["api_key"]
-
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -45,62 +42,51 @@ async def validate_arguments(ctx, command):
     return True
 
 
-def create_list(resps_per_day):
-    tz = datetime.timezone(datetime.timedelta(hours=1))
-    time_list = []
-    for i in range(resps_per_day):
-        time_list.append(datetime.time(hour=i * int(24 / resps_per_day) % 24, minute=55, second=00, microsecond=0, tzinfo=tz))
-    return time_list
-
-
 async def kwiatki_routine(ctx):
     if(not await validate_arguments(ctx, "kwiatki")):
         return
 
-    await update_timers_list(ctx, remind_flowers_resps, "Kwiatki", 24, 0xca15b9, False, 5)
+    await update_timers_list(ctx, remind_flowers_resps, "Kwiatki", 60, 0xca15b9, 5)
 
 
 async def bossy_routine(ctx):
     if(not await validate_arguments(ctx, "bossy")):
         return
 
-    await update_timers_list(ctx, remind_boss_resps, "Respy", 8, 0x00ff00, False, 5)
+    await update_timers_list(ctx, remind_boss_resps, "Respy", 180, 0x00ff00, 5)
 
 
-async def event_routine(ctx):
-    if(not await validate_arguments(ctx, "event") or not config["event"]):
+async def mrok_routine(ctx):
+    if(not await validate_arguments(ctx, "mrok")):
         return
 
-    await update_timers_list(ctx, remind_event_resps, "Święta", 24, 0x00CCFF, True, 3)
+    await update_timers_list(ctx, remind_mrok_resps, "Mrok", 30, 0x380A2E, 3)
 
 
-async def update_timers_list(ctx, func, title, resps_per_day, color, swieta, advance_time):
-    tz = datetime.timezone(datetime.timedelta(hours=1))
+async def update_timers_list(ctx, func, title, frequency, color, advance_time):
     args = ctx.content.split()
 
     #clear list
     time_list = []
-    diff = int(24 / resps_per_day)
+    resps_per_day = math.floor(1440 / frequency)
+    print(resps_per_day)
     #prepare embed
     desc = ""
     for i in range(resps_per_day):
-        desc += str(datetime.time(hour=(int(args[1]) + i * diff) % 24, minute=int(
-            args[2]), second=int(args[3]), microsecond=0, tzinfo=tz))[0:8] + "\n"
+        h = (int(args[1]) + math.floor((int(args[2]) + frequency * i) / 60))% 24
+        m = (int(args[2]) + math.floor(frequency * i)) % 60
+        s = int(args[3])
 
-    #shift 5 minutes earlier
-    if(int(args[2]) < advance_time):
-        args[2] = str((int(args[2]) - advance_time) % 60)
-        args[1] = str((int(args[1]) - 1) % 24)
-    else:
-        args[2] = str(int(args[2]) - advance_time)
+        date = datetime.datetime(2023, 1, 1, h, m, s, 0)
+        time = date.time()
+        desc += str(time)[0:8] + "\n"
 
-    #append new times to the list
-    for i in range(resps_per_day):
-        time_list.append(datetime.time(hour=(int(args[1]) + i * diff) % 24, minute=int(
-            args[2]), second=int(args[3]), microsecond=0, tzinfo=tz))
-        if(swieta):
-            time_list.append(datetime.time(hour=(int(args[1]) + i * diff) % 24, minute=(int(
-                args[2]) + 30) % 60, second=int(args[3]), microsecond=0, tzinfo=tz))
+        date = date - datetime.timedelta(minutes=advance_time)
+
+        #fix timezone
+        tz_offset = -1
+        date = date + datetime.timedelta(hours=tz_offset)
+        time_list.append(date.time())
 
     #update play_alert loop list
     func.change_interval(time=time_list)
@@ -110,6 +96,7 @@ async def update_timers_list(ctx, func, title, resps_per_day, color, swieta, adv
     embedVar = discord.Embed(
         title=title, description=desc, color=color)
     await ctx.channel.send(embed=embedVar)
+
 
 async def remind(channels, sound):
     for c in channels:
@@ -122,7 +109,7 @@ async def remind(channels, sound):
 
 boss_list = [datetime.time(hour = 0, minute = 0, second=  0)]
 flowers_list = [datetime.time(hour = 0, minute = 0, second=  0)]
-event_list = [datetime.time(hour=0, minute=0, second=0)]
+mrok_list = [datetime.time(hour=0, minute=0, second=0)]
 
 ########################################################################################
 #discord logic
@@ -131,12 +118,11 @@ event_list = [datetime.time(hour=0, minute=0, second=0)]
 async def on_ready():
     print(f'{client.user} has connected to Discord!')
     remind_boss_resps.start()
-    remind_flowers_resps.start()
-    if(config["event"]):
-        remind_event_resps.start()
+    #remind_flowers_resps.start()
+    remind_mrok_resps.start()
 
     try:
-        task = asyncio.create_task(main_routine(client, api_key))
+        task = asyncio.create_task(main_routine(client))
     except:
         pass
 
@@ -144,6 +130,7 @@ async def on_ready():
 
 @tasks.loop(time=boss_list)
 async def remind_boss_resps():
+    print("test")
     await lock.acquire()
     await remind(config["bosses_voice_channel_ids"], config["sound_bosses"])
     lock.release()
@@ -156,10 +143,10 @@ async def remind_flowers_resps():
     lock.release()
 
 
-@tasks.loop(time=event_list)
-async def remind_event_resps():
+@tasks.loop(time=mrok_list)
+async def remind_mrok_resps():
     await lock.acquire()
-    await remind(config["event_voice_channel_ids"], config["sound_event"])
+    await remind(config["mrok_voice_channel_ids"], config["sound_mrok"])
     lock.release()
 
 @client.event
@@ -181,10 +168,9 @@ async def on_message(ctx):
         #do kwiatki routine
         await kwiatki_routine(ctx)
     
-    if(ctx.content.startswith(config["prefix"] + "event")):
-        if(config["event"]):
-        #do event routine
-            await event_routine(ctx)
+    if(ctx.content.startswith(config["prefix"] + "mrok")):
+        #do mrok routine
+        await mrok_routine(ctx)
 
 
 client.run(config["token"])

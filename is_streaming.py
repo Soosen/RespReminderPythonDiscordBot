@@ -10,8 +10,9 @@ class Youtuber:
         self.nickname = nickname
         self.channel_ID = channel_ID
 
-async def main_routine(client, api_key):
+async def main_routine(client):
     youtubers = load_youtubers_from_json()
+    api_key = load_api_key(1)
     while(True):
         print(f"[{str(datetime.now())[:-7]}] Last streaming check")
         members = client.get_all_members()
@@ -19,12 +20,16 @@ async def main_routine(client, api_key):
             for y in youtubers:
                 if(y.nickname == m.display_name or "🔴[LIVE] " + y.nickname == m.display_name):
                     await change_discord_name(y, api_key, m)
-        await asyncio.sleep(300)
+        await asyncio.sleep(600)
 
 def load_youtubers_from_json():
     with open("youtubers.json", "r") as f:
         data = json.load(f)
     return [Youtuber(y["nickname"], y["channel_ID"]) for y in data]
+
+def load_api_key(id):
+    with open('api.json') as f:
+        return json.load(f)[f"api_key{id}"]
 
 def is_streaming(youtuber, api_key):
     try:
