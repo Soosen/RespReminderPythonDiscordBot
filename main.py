@@ -3,27 +3,24 @@ import discord
 import asyncio
 from discord.ext import tasks
 import datetime
-import concurrent.futures
 from is_streaming import main_routine
-import warnings
 import math
-
-warnings.filterwarnings("ignore", category=UserWarning, module='discord')
 
 lock = asyncio.Lock()
 
 with open('config.json') as f:
     config = json.load(f)
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.messages = True
 intents.message_content = True
 intents.members = True
+intents.voice_states = True
 client = discord.Client(intents=intents)
 
 async def validate_arguments(ctx, command):
     args = ctx.content.split()
-
+    
     #chec args length
     if(len(args) != 4):
         await ctx.channel.send(config["prefix"] + f"{command} [godzina] [minuta] [sekunda]")
@@ -53,14 +50,14 @@ async def bossy_routine(ctx):
     if(not await validate_arguments(ctx, "bossy")):
         return
 
-    await update_timers_list(ctx, remind_boss_resps, "Respy", 180, 0x00ff00, 5)
+    await update_timers_list(ctx, remind_boss_resps, "Respy", 180, 0x00ff00, 10)
 
 
 async def mrok_routine(ctx):
     if(not await validate_arguments(ctx, "mrok")):
         return
 
-    await update_timers_list(ctx, remind_mrok_resps, "Mrok", 30, 0x380A2E, 3)
+    await update_timers_list(ctx, remind_mrok_resps, "Mrok", 30, 0x380A2E, 2)
 
 
 async def update_timers_list(ctx, func, title, frequency, color, advance_time):
@@ -69,7 +66,6 @@ async def update_timers_list(ctx, func, title, frequency, color, advance_time):
     #clear list
     time_list = []
     resps_per_day = math.floor(1440 / frequency)
-    print(resps_per_day)
     #prepare embed
     desc = ""
     for i in range(resps_per_day):
@@ -84,7 +80,7 @@ async def update_timers_list(ctx, func, title, frequency, color, advance_time):
         date = date - datetime.timedelta(minutes=advance_time)
 
         #fix timezone
-        tz_offset = -1
+        tz_offset = -2
         date = date + datetime.timedelta(hours=tz_offset)
         time_list.append(date.time())
 
@@ -100,11 +96,38 @@ async def update_timers_list(ctx, func, title, frequency, color, advance_time):
 
 async def remind(channels, sound):
     for c in channels:
-        channel = client.get_channel(c)
-        voice_client = await channel.connect()
-        voice_client.play(discord.FFmpegPCMAudio(sound), after=lambda e: asyncio.run_coroutine_threadsafe(voice_client.disconnect(), client.loop))
-        while(voice_client.is_connected()):
-            await asyncio.sleep(1)
+        timeout = 10
+        try:
+            channel = client.get_channel(c)
+            voice_client = await channel.connect()
+            voice_client.play(discord.FFmpegPCMAudio(sound), after=lambda e: asyncio.run_coroutine_threadsafe(voice_client.disconnect(), client.loop))
+            while(voice_client.is_connected()):
+                await asyncio.sleep(1)
+                timeout -= 1
+                if(timeout <= 0):
+                    voice_client.disconnect()
+                    break
+        except:
+            voice_client.disconnect()
+
+async def move_all(ctx):
+    args = ctx.content.split()
+    if(len(args) < 1 or len(args) > 2):
+        await ctx.channel.send(config["prefix"] + "moveall [source_channel_name]")
+
+    target_channel = ctx.author.voice.channel
+    if(not target_channel):
+        await ctx.channel.send("You must be connected to a voice channel")
+
+    for member in ctx.guild.members:
+        if(member == ctx.author):
+            continue
+        if(member.voice):
+            members_vc = member.voice.channel
+            if(len(args) == 1 or args[1] in members_vc.name):
+                if(members_vc != ctx.guild.afk_channel):
+                    await member.move_to(target_channel)
+
 
 
 boss_list = [datetime.time(hour = 0, minute = 0, second=  0)]
@@ -130,10 +153,9 @@ async def on_ready():
 
 @tasks.loop(time=boss_list)
 async def remind_boss_resps():
-    print("test")
-    await lock.acquire()
+    #await lock.acquire()
     await remind(config["bosses_voice_channel_ids"], config["sound_bosses"])
-    lock.release()
+    #lock.release()
     
 
 @tasks.loop(time=flowers_list)
@@ -171,6 +193,21 @@ async def on_message(ctx):
     if(ctx.content.startswith(config["prefix"] + "mrok")):
         #do mrok routine
         await mrok_routine(ctx)
+
+    if(ctx.content.startswith(config["prefix"] + "summon")):
+        args = ctx.content.split()
+        if(len(args) != 2 or (args[1] != "mrok" and args[1] != "bossy")):
+            await ctx.channel.send(f"{args[0]} bossy/mrok")
+            return
+        
+        if(args[1] == "bossy"):
+            await remind(config["bosses_voice_channel_ids"], config["sound_bosses"])
+        else:
+            await remind(config["mrok_voice_channel_ids"], config["sound_mrok"])
+
+    if(ctx.content.startswith(config["prefix"] + "moveall")):
+        await move_all(ctx)
+
 
 
 client.run(config["token"])
