@@ -160,11 +160,10 @@ async def shake(ctx):
     amount = int(args[2])
 
     victim = await find_member_by_nickname(nickname, ctx.guild)
-    vitcims_starting_channel = victim.voice.channel
     if(not victim):
         await ctx.channel.send(f"Did not find {nickname}")
         return
-    
+    vitcims_starting_channel = victim.voice.channel
     last_r = -1
     for i in range(amount):
         while(True):
