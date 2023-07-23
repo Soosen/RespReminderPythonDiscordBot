@@ -5,6 +5,7 @@ from discord.ext import tasks
 import datetime
 from is_streaming import main_routine
 import math
+import random
 
 lock = asyncio.Lock()
 
@@ -128,6 +129,89 @@ async def move_all(ctx):
                 if(members_vc != ctx.guild.afk_channel):
                     await member.move_to(target_channel)
 
+async def list_all_voice_channels(guild):
+    voice_channels = []
+    all_channels = guild.channels
+    for c in all_channels:
+        if(str(c.type) == "voice" and c != guild.afk_channel):
+            voice_channels.append(c)
+
+    return voice_channels
+
+
+async def find_member_by_nickname(nickname, guild):
+    for member in guild.members:
+        if member.name.lower() == nickname.lower() or member.display_name.lower() == nickname.lower():
+            return member
+    return None
+
+async def shake(ctx):
+    if(not isModerator(ctx.author)):
+        await ctx.channel.send("You have no permision to use the command")
+        return
+     
+    args = ctx.content.split()
+    if(len(args) != 3 or not args[2].isnumeric()):
+        await ctx.channel.send(config["prefix"] + "shake [nick] [amount]")
+        return
+
+    voice_channels = await list_all_voice_channels(ctx.guild)
+    nickname = args[1]
+    amount = int(args[2])
+
+    victim = await find_member_by_nickname(nickname, ctx.guild)
+    if(not victim):
+        await ctx.channel.send(f"Did not find {nickname}")
+        return
+    
+    last_r = -1
+    for i in range(amount):
+        while(True):
+            r = random.randint(0, len(voice_channels) - 1)
+            if(r != last_r):
+                last_r = r
+                break
+
+        try:
+            await victim.move_to(voice_channels[r])
+        except:
+            continue
+
+
+
+async def roulette(ctx):
+    if(not isModerator(ctx.author)):
+        await ctx.channel.send("You have no permision to use the command")
+        return
+    
+    args = ctx.content.split()
+    if(len(args) == 1):
+        winners = 1
+    elif(len(args) == 2 and args[1].isnumeric()):
+        winners = int(args[1])
+    else:
+        await ctx.channel.send(f"{config['prefix']}roulette [winners_amount]")
+        return
+    
+    if(not ctx.author.voice):
+        await ctx.channel.send("You must be connected to a voice channel")
+        return
+    
+    members_in_channel = []
+    for member in ctx.guild.members:
+        if(member.voice and member.voice.channel == ctx.author.voice.channel):
+            members_in_channel.append(member)
+
+    while(len(members_in_channel) > winners):
+        r = random.randint(0, len(members_in_channel) - 1)
+        victim = members_in_channel[r]
+        await victim.move_to(None)
+    
+
+def isModerator(member):
+    return(discord.utils.get(member.roles, id=config["moderatorID"]))
+
+
 
 
 boss_list = [datetime.time(hour = 0, minute = 0, second=  0)]
@@ -207,6 +291,12 @@ async def on_message(ctx):
 
     if(ctx.content.startswith(config["prefix"] + "moveall")):
         await move_all(ctx)
+
+    if(ctx.content.startswith(config["prefix"] + "shake")):
+        await shake(ctx)
+
+    if(ctx.content.startswith(config["prefix"] + "roulette")):
+        await roulette(ctx)
 
 
 
