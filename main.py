@@ -208,7 +208,7 @@ async def roulette(ctx):
         r = random.randint(0, len(members_in_channel) - 1)
         victim = members_in_channel[r]
         members_in_channel.remove(victim)
-        await victim.move_to(None)
+        await victim.move_to(ctx.guild.afk_channel)
     
 
 def isModerator(member):
