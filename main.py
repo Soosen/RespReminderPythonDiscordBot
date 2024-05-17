@@ -4,9 +4,9 @@ import asyncio
 from discord.ext import tasks
 import datetime
 import math
-import random
+from loguru import logger
 
-lock = asyncio.Lock()
+logger.add("error.log", level="ERROR")
 
 with open('config.json') as f:
     config = json.load(f)
@@ -123,7 +123,8 @@ async def summon(ctx):
         voice_client = await channel.connect()
         voice_client.play(discord.FFmpegPCMAudio(sound), after=lambda e: asyncio.run_coroutine_threadsafe(
             voice_client.disconnect(), client.loop))
-    except:
+    except Exception as e:
+            logger.exception("An error occurred: %s", str(e))
             voice_client.disconnect()
 
 
@@ -146,8 +147,9 @@ async def remind():
                 if(timeout <= 0):
                     voice_client.disconnect()
                     break
-        except:
-           voice_client.disconnect()
+        except Exception as e:
+            logger.exception("An error occurred: %s", str(e))
+            voice_client.disconnect()
 
 def find_closest_event():
     lowest_delta = math.inf
